@@ -109,15 +109,16 @@ class _MyAppState extends State<MyApp> {
                   Expanded(
                     child: TextButton(
                       onPressed: () => sendMessage(),
-                      child: _buildText('Message'),
+                      child: _buildText(
+                          '${isWear ? 'Send Message To Android' : 'Send Message To Wear Os'}'),
                     ),
                   ),
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => sendContext(),
-                      child: _buildText('Context'),
-                    ),
-                  ),
+                  // Expanded(
+                  //   child: TextButton(
+                  //     onPressed: () => sendContext(),
+                  //     child: _buildText('Context'),
+                  //   ),
+                  // ),
                 ],
               ),
               // TextButton(

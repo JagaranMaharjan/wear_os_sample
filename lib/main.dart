@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:is_wear/is_wear.dart';
 
 import 'package:watch_connectivity/watch_connectivity.dart';
 import 'package:wear_plus/wear_plus.dart';
+
+import 'package:heart_bpm/chart.dart';
+import 'package:heart_bpm/heart_bpm.dart';
 
 late final bool isWear;
 
@@ -24,6 +28,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  List<SensorValue> _sensorValues = [];
   final _watch = WatchConnectivity();
 
   var _count = 0;
@@ -45,7 +50,13 @@ class _MyAppState extends State<MyApp> {
 
     _watch.messageStream.listen((e) => setState(() {
           _receivedContexts.add(e);
+          _sensorValues.add(SensorValue(
+            time: DateTime.now(),
+            value: double.tryParse(e['data']) ?? 0,
+          ));
+
           _log.add('Received message: $e');
+          setState(() {});
         }));
 
     _watch.contextStream.listen((e) => setState(() {
@@ -113,25 +124,30 @@ class _MyAppState extends State<MyApp> {
                           '${isWear ? 'Send Message To Android' : 'Send Message To Wear Os'}'),
                     ),
                   ),
-                  // Expanded(
-                  //   child: TextButton(
-                  //     onPressed: () => sendContext(),
-                  //     child: _buildText('Context'),
-                  //   ),
-                  // ),
                 ],
               ),
-              // TextButton(
-              //   onPressed: toggleBackgroundMessaging,
-              //   child: Text(
-              //     '${timer == null ? 'Start' : 'Stop'} background messaging',
-              //     textAlign: TextAlign.center,
-              //   ),
-              // ),
-              // const SizedBox(width: 16),
               if (!isWear) ...{
                 _buildText('Log'),
-                ..._log.reversed.map(Text.new),
+                // ..._log.reversed.map(Text.new),
+                CheckBMP(
+                  onBPM: (v) {
+                    //{'data': !isWear ? 'Hello wear os' : 'Hello Android'}
+                    _watch.sendMessage({'data': '${v.value}'});
+
+                    setState(() => _log.add('Sent message: ${v.toJSON()}'));
+                  },
+                  onBPMValues: (v) {
+                    _watch.sendMessage({'data': '${v.value}'});
+                    setState(() => _log.add('Sent message 01: ${v.toJSON()}'));
+                  },
+                ),
+              } else ...{
+                // if (_sensorValues.isNotEmpty)
+                //   SizedBox(
+                //     height: 250,
+                //     width: double.infinity,
+                //     child: BPMChart(_sensorValues),
+                //   ),
               },
             ],
           ),
@@ -172,5 +188,81 @@ class _MyAppState extends State<MyApp> {
       timer = null;
     }
     setState(() {});
+  }
+}
+
+class CheckBMP extends StatefulWidget {
+  final void Function(SensorValue bmpUpdate) onBPM;
+  final void Function(SensorValue bmpUpdate) onBPMValues;
+
+  CheckBMP({required this.onBPM, required this.onBPMValues});
+
+  @override
+  _CheckBMPState createState() => _CheckBMPState();
+}
+
+class _CheckBMPState extends State<CheckBMP> {
+  List<SensorValue> data = [];
+  List<SensorValue> bpmValues = [];
+
+  bool isBPMEnabled = false;
+  Widget? dialog;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        children: [
+          isBPMEnabled
+              ? dialog = HeartBPMDialog(
+                  context: context,
+                  showTextValues: true,
+                  borderRadius: 10,
+                  onRawData: (value) {
+                    setState(() {
+                      if (data.length >= 100) data.removeAt(0);
+                      data.add(value);
+                      widget.onBPM(value);
+                    });
+                  },
+                  onBPM: (value) => setState(() {
+                    if (bpmValues.length >= 100) bpmValues.removeAt(0);
+                    bpmValues.add(SensorValue(
+                        value: value.toDouble(), time: DateTime.now()));
+                    widget.onBPMValues(SensorValue(
+                        value: value.toDouble(), time: DateTime.now()));
+                  }),
+                )
+              : SizedBox(),
+          isBPMEnabled && data.isNotEmpty
+              ? Container(
+                  decoration: BoxDecoration(border: Border.all()),
+                  height: 180,
+                  child: BPMChart(data),
+                )
+              : SizedBox(),
+          isBPMEnabled && bpmValues.isNotEmpty
+              ? Container(
+                  decoration: BoxDecoration(border: Border.all()),
+                  constraints: BoxConstraints.expand(height: 180),
+                  child: BPMChart(bpmValues),
+                )
+              : SizedBox(),
+          Center(
+            child: ElevatedButton.icon(
+              icon: Icon(Icons.favorite_rounded),
+              label: Text(isBPMEnabled ? "Stop measurement" : "Measure BPM"),
+              onPressed: () => setState(() {
+                if (isBPMEnabled) {
+                  isBPMEnabled = false;
+                } else
+                  isBPMEnabled = true;
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

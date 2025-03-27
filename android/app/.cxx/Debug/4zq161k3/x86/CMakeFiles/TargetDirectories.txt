@@ -1,0 +1,2 @@
+/Users/jagaran/sttn/wear/android/app/.cxx/Debug/4zq161k3/x86/CMakeFiles/edit_cache.dir
+/Users/jagaran/sttn/wear/android/app/.cxx/Debug/4zq161k3/x86/CMakeFiles/rebuild_cache.dir
